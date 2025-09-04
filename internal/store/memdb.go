@@ -49,8 +49,8 @@ func NewMemDb() *MemDb {
 }
 
 // CreateTable creates a new table in the memdb if it does not already exist.
-func (d *MemDb) CreateTable(name string) error {
-	if d.tables == nil {
+func (m *MemDb) CreateTable(name string) error {
+	if m.tables == nil {
 		return fmt.Errorf("tables map not initialized")
 	}
 
@@ -60,19 +60,19 @@ func (d *MemDb) CreateTable(name string) error {
 		mutex:     sync.RWMutex{},
 	}
 
-	d.tables.LoadOrStore(name, v)
+	m.tables.LoadOrStore(name, v)
 	return nil
 }
 
 // DeleteTable deletes a table from the memdb.
-func (d *MemDb) DeleteTable(name string) error {
-	if d.tables == nil {
+func (m *MemDb) DeleteTable(name string) error {
+	if m.tables == nil {
 		return fmt.Errorf("tables map not initialized")
 	}
-	if _, exists := d.tables.Load(name); !exists {
+	if _, exists := m.tables.Load(name); !exists {
 		return fmt.Errorf("table %s does not exist", name)
 	}
-	d.tables.Delete(name)
+	m.tables.Delete(name)
 	return nil
 }
 
@@ -80,8 +80,8 @@ func (d *MemDb) DeleteTable(name string) error {
 // without table lock. An expection is when table itself is deleted, but since operation
 // that calls this function happens before table deletion, we are operating on a
 // valid data at that point of time.
-func (d *MemDb) getDataMap(table string) (*value, error) {
-	t, exists := d.tables.Load(table)
+func (m *MemDb) getDataMap(table string) (*value, error) {
+	t, exists := m.tables.Load(table)
 	if !exists {
 		return nil, fmt.Errorf("table %s does not exist", table)
 	}
@@ -89,8 +89,8 @@ func (d *MemDb) getDataMap(table string) (*value, error) {
 }
 
 // Write inserts an item into the specified table in the memdb.
-func (d *MemDb) Write(table string, key any, item any) error {
-	v, err := d.getDataMap(table)
+func (m *MemDb) Write(table string, key any, item any) error {
+	v, err := m.getDataMap(table)
 	if err != nil {
 		return err
 	}
@@ -106,8 +106,8 @@ func (d *MemDb) Write(table string, key any, item any) error {
 }
 
 // Read retrieves an item from the specified table and index in the memdb.
-func (d *MemDb) Read(table string, id any) (any, error) {
-	t, err := d.getDataMap(table)
+func (m *MemDb) Read(table string, id any) (any, error) {
+	t, err := m.getDataMap(table)
 	if err != nil {
 		return nil, err
 	}
@@ -122,8 +122,8 @@ func (d *MemDb) Read(table string, id any) (any, error) {
 
 // ReadRange retrieves all itemms within the specified range [start, end) from the table.
 // Returns slice of items, EOF status, and error (if any).
-func (d *MemDb) ReadRange(table string, start, end int) ([]any, bool, error) {
-	t, err := d.getDataMap(table)
+func (m *MemDb) ReadRange(table string, start, end int) ([]any, bool, error) {
+	t, err := m.getDataMap(table)
 	if err != nil {
 		return nil, false, err
 	}
@@ -144,8 +144,8 @@ func (d *MemDb) ReadRange(table string, start, end int) ([]any, bool, error) {
 }
 
 // ReadAll retrieves all items from the specified table in the memdb.
-func (d *MemDb) ReadAll(table string) ([]any, error) {
-	t, err := d.getDataMap(table)
+func (m *MemDb) ReadAll(table string) ([]any, error) {
+	t, err := m.getDataMap(table)
 	if err != nil {
 		return nil, err
 	}
@@ -159,8 +159,8 @@ func (d *MemDb) ReadAll(table string) ([]any, error) {
 // Delete deletes an item from the specified table in the memdb.
 // This is an O(n) operation due to slice reallocation and index remapping.
 // We are assuming delete operations are rare compared to read/write operations.
-func (d *MemDb) Delete(table string, id any) error {
-	v, err := d.getDataMap(table)
+func (m *MemDb) Delete(table string, id any) error {
+	v, err := m.getDataMap(table)
 	if err != nil {
 		return err
 	}

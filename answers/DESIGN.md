@@ -78,9 +78,15 @@ It’s important to decide what to instrument, which metrics to expose, and to w
 Too little instrumentation makes debugging production issues difficult, while too much can affect performance.
 
 ## Go API framework of choice (e.g., Gin, Chi) and why?
-Standard HTTP library – Straightforward and dependency-free. I would select it for infrastructure projects where the number of APIs to support is minimal.
 
-Gin – A good choice if the project has many APIs and cleaner code organization is important.
+**Standard HTTP library with Gorilla Mux** – This is my choice in most cases:
+- It's been around for a long time and is still good enough to support most use cases
+- Probably one of the most stable frameworks
+- Provides full control over your code
 
+**Gin** – A good choice if the project has many APIs and cleaner code organization is important:
+- High performance and speed
+- Many built-in features like JSON binding, logging, etc.
+- Most adopted web framework in Go. Future long-term community support is guaranteed
 
-For an e-commerce project, I would select Gin. For an infrastructure project, I may go with the standard HTTP library.
+In general, when selecting a library, if possible I will stick to standard libraries provided by the language. If they're not available or external libraries provide features that the project requires, we need to make sure the library is well-adopted and supported.

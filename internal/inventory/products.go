@@ -27,10 +27,10 @@ func NewInventory(ctx context.Context, table string, db *store.MemDb, mc *observ
 	}
 }
 
-func (p *Inventory) Add(ctx context.Context, req CreateRequest) (string, int, error) {
-	_, err := p.db.Read(p.tableName, req.ID)
+func (i *Inventory) Add(ctx context.Context, req CreateRequest) (string, int, error) {
+	_, err := i.db.Read(i.tableName, req.ID)
 	if err == nil {
-		p.mc.RecordOperation(observability.OpInsert, false)
+		i.mc.RecordOperation(observability.OpInsert, false)
 		return "", http.StatusConflict, fmt.Errorf("product with ID %s already exists", req.ID)
 	}
 	product := Product{
@@ -48,35 +48,35 @@ func (p *Inventory) Add(ctx context.Context, req CreateRequest) (string, int, er
 	// Validate ID length. In a real system, more validations would be needed.
 	// Some validations can be done during request binding in the API layer
 	if len(product.ID) > 255 {
-		p.mc.RecordOperation(observability.OpInsert, false)
+		i.mc.RecordOperation(observability.OpInsert, false)
 		return "", http.StatusBadRequest, fmt.Errorf("product ID too long: maximum 255 characters, got %d", len(product.ID))
 	}
-	err = p.db.Write(p.tableName, product.ID, product)
+	err = i.db.Write(i.tableName, product.ID, product)
 	if err != nil {
-		p.mc.RecordOperation(observability.OpInsert, false)
+		i.mc.RecordOperation(observability.OpInsert, false)
 		slog.ErrorContext(ctx, "Failed to add product", "id", product.ID, "error", err)
 		return "", http.StatusInternalServerError, err
 	}
-	p.mc.RecordOperation(observability.OpInsert, true)
+	i.mc.RecordOperation(observability.OpInsert, true)
 	slog.DebugContext(ctx, "Product added", "id", product.ID)
 	return product.ID, http.StatusCreated, nil
 }
 
-func (p *Inventory) Get(ctx context.Context, id string) (Product, int, error) {
-	item, err := p.db.Read(p.tableName, id)
+func (i *Inventory) Get(ctx context.Context, id string) (Product, int, error) {
+	item, err := i.db.Read(i.tableName, id)
 	if err != nil {
-		p.mc.RecordOperation(observability.OpGet, false)
+		i.mc.RecordOperation(observability.OpGet, false)
 		return Product{}, http.StatusNotFound, err
 	}
-	p.mc.RecordOperation(observability.OpGet, true)
+	i.mc.RecordOperation(observability.OpGet, true)
 	slog.DebugContext(ctx, "Product retrieved", "id", id)
 	return item.(Product), http.StatusOK, nil
 }
 
-func (p *Inventory) Update(ctx context.Context, id string, req UpdateRequest) (int, error) {
-	product, err := p.db.Read(p.tableName, id); 
+func (i *Inventory) Update(ctx context.Context, id string, req UpdateRequest) (int, error) {
+	product, err := i.db.Read(i.tableName, id)
 	if err != nil {
-		p.mc.RecordOperation(observability.OpUpdate, false)
+		i.mc.RecordOperation(observability.OpUpdate, false)
 		return http.StatusNotFound, err
 	}
 	pd := product.(Product)
@@ -90,57 +90,57 @@ func (p *Inventory) Update(ctx context.Context, id string, req UpdateRequest) (i
 		pd.Stock = *req.Stock
 	}
 	pd.UpdatedAt = time.Now()
-	if err := p.db.Write(p.tableName, id, pd); err != nil {
-		p.mc.RecordOperation(observability.OpUpdate, false)
+	if err := i.db.Write(i.tableName, id, pd); err != nil {
+		i.mc.RecordOperation(observability.OpUpdate, false)
 		slog.ErrorContext(ctx, "Failed to update product", "id", id, "error", err)
 		return http.StatusInternalServerError, err
 	}
 
-	p.mc.RecordOperation(observability.OpUpdate, true)
+	i.mc.RecordOperation(observability.OpUpdate, true)
 	slog.DebugContext(ctx, "Product updated", "id", id)
 	return http.StatusOK, nil
 }
 
-func (p *Inventory) Delete(ctx context.Context, id string) (int, error) {
-	_, err := p.db.Read(p.tableName, id)
+func (i *Inventory) Delete(ctx context.Context, id string) (int, error) {
+	_, err := i.db.Read(i.tableName, id)
 	if err != nil {
-		p.mc.RecordOperation(observability.OpDelete, false)
+		i.mc.RecordOperation(observability.OpDelete, false)
 		return http.StatusNotFound, err
 	}
-	if err := p.db.Delete(p.tableName, id); err != nil {
-		p.mc.RecordOperation(observability.OpDelete, false)
+	if err := i.db.Delete(i.tableName, id); err != nil {
+		i.mc.RecordOperation(observability.OpDelete, false)
 		slog.ErrorContext(ctx, "Failed to delete product", "id", id, "error", err)
 		return http.StatusInternalServerError, err
 	}
-	p.mc.RecordOperation(observability.OpDelete, true)
+	i.mc.RecordOperation(observability.OpDelete, true)
 	slog.DebugContext(ctx, "Product deleted", "id", id)
 	return http.StatusOK, nil
 }
 
 // List returns a list of products based on the provided ListParams.
 // Returns Products slice, EOF status, and error (if any).
-func (p *Inventory) List(ctx context.Context, params ListParams) ([]Product, *ListMetadata, int, error) {
+func (i *Inventory) List(ctx context.Context, params ListParams) ([]Product, *ListMetadata, int, error) {
 	// Filtering is not supported due to in-memory DB limitations.
 	// Without an underlying DB with query capabilities filtering can be error-prone and inefficient.
 	if params.Page == nil && params.Limit == nil {
-		list, err := p.GetAllItems(ctx)
+		list, err := i.GetAllItems(ctx)
 		if err != nil {
-			p.mc.RecordOperation(observability.OpList, false)
+			i.mc.RecordOperation(observability.OpList, false)
 			return nil, nil, http.StatusInternalServerError, err
 		}
-		p.mc.RecordOperation(observability.OpList, true)
+		i.mc.RecordOperation(observability.OpList, true)
 		return list, nil, http.StatusOK, nil
 	}
 	if params.Page == nil || params.Limit == nil {
-		p.mc.RecordOperation(observability.OpList, false)
+		i.mc.RecordOperation(observability.OpList, false)
 		return nil, nil, http.StatusBadRequest, fmt.Errorf("both page and limit must be provided")
 	}
 	page := *params.Page
 	limit := *params.Limit
 
-	list, eof, err := p.NoFilter(ctx, (page-1)*limit, page*limit)
+	list, eof, err := i.NoFilter(ctx, (page-1)*limit, page*limit)
 	if err != nil {
-		p.mc.RecordOperation(observability.OpList, false)
+		i.mc.RecordOperation(observability.OpList, false)
 		return nil, nil, http.StatusInternalServerError, err
 	}
 	var nextPage *int
@@ -148,18 +148,18 @@ func (p *Inventory) List(ctx context.Context, params ListParams) ([]Product, *Li
 		np := page + 1
 		nextPage = &np
 	}
-	p.mc.RecordOperation(observability.OpList, true)
+	i.mc.RecordOperation(observability.OpList, true)
 	return list, &ListMetadata{
 		CurrentPage: page,
 		NextPage:    nextPage,
-	}, http.StatusOK,nil
+	}, http.StatusOK, nil
 }
 
-func (p *Inventory) NoFilter(ctx context.Context, start, end int) ([]Product, bool, error) {
+func (i *Inventory) NoFilter(ctx context.Context, start, end int) ([]Product, bool, error) {
 	var unfiltered []Product
-	items, eof, err := p.db.ReadRange(p.tableName, start, end)
+	items, eof, err := i.db.ReadRange(i.tableName, start, end)
 	if err != nil {
-		p.mc.RecordOperation(observability.OpList, false)
+		i.mc.RecordOperation(observability.OpList, false)
 		slog.ErrorContext(ctx, "Failed to retrieve products", "error", err)
 		return nil, false, err
 	}
@@ -170,8 +170,8 @@ func (p *Inventory) NoFilter(ctx context.Context, start, end int) ([]Product, bo
 	return unfiltered, eof, nil
 }
 
-func (p *Inventory) GetAllItems(ctx context.Context) ([]Product, error) {
-	items, err := p.db.ReadAll(p.tableName)
+func (i *Inventory) GetAllItems(ctx context.Context) ([]Product, error) {
+	items, err := i.db.ReadAll(i.tableName)
 	if err != nil {
 		slog.ErrorContext(ctx, "Failed to retrieve all products", "error", err)
 		return nil, err
@@ -183,8 +183,8 @@ func (p *Inventory) GetAllItems(ctx context.Context) ([]Product, error) {
 	return products, nil
 }
 
-func (p *Inventory) GetStats() map[string]int64 {
-	return p.mc.GetStats()
+func (i *Inventory) GetStats() map[string]int64 {
+	return i.mc.GetStats()
 }
 
 func generateID() string {
